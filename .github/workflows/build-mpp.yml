@@ -1,0 +1,70 @@
+name: Build Morphe MPP
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Để tạo Release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Configure Gradle Auth
+        run: |
+          echo "gpr.user=${{ github.actor }}" >> gradle.properties
+          echo "gpr.key=${{ secrets.GH_TOKEN }}" >> gradle.properties
+
+      - name: Build Patch JAR
+        run: |
+          chmod +x gradlew
+          ./gradlew :patches:shadowJar --no-daemon
+
+      - name: Package MPP File
+        run: |
+          mkdir release_pkg
+          # Lấy file jar đã build từ module patches
+          JAR_FILE=$(ls -S patches/build/libs/*.jar | head -n 1)
+          cp "$JAR_FILE" release_pkg/patch.jar
+          
+          # Tạo manifest.json (CẬP NHẬT CLASS THEO PATH CỦA BẠN)
+          cat <<EOF > release_pkg/manifest.json
+          {
+            "name": "Template Custom Patches",
+            "description": "Chặn quảng cáo tự động build từ GitHub",
+            "version": "1.0.${{ github.run_number }}",
+            "author": "${{ github.actor }}",
+            "minMorpheVersion": "1.0.0",
+            "patches": [
+              {
+                "class": "app.template.patches.AndroidManifestPatch",
+                "type": "xml"
+              }
+            ]
+          }
+          EOF
+          
+          cd release_pkg
+          zip -r ../Patch_Bundle_v${{ github.run_number }}.mpp patch.jar manifest.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.mpp"
+          tag_name: v1.0.${{ github.run_number }}
+          name: Release v1.0.${{ github.run_number }}
+          body: "Tải file .mpp bên dưới về máy và nhập vào Morphe App."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
