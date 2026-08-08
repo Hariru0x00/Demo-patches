@@ -3,6 +3,7 @@ package app.template.patches
 import app.morphe.patcher.patch.XmlPatch
 import app.morphe.patcher.patch.annotation.Patch
 import app.morphe.patcher.patch.PatchContext
+import org.w3c.dom.Document
 import org.w3c.dom.Element
 
 @Patch(
@@ -10,10 +11,10 @@ import org.w3c.dom.Element
     description = "Chặn Google Ads và xóa các quyền theo dõi trong AndroidManifest.xml",
     version = "1.0.0"
 )
-object AndroidManifestPatch : XmlPatch() {
+object AndroidManifestPatch : XmlPatch<Document>() {
 
-    override fun execute(context: PatchContext) {
-        val manifestDocument = context.getXmlDocument("AndroidManifest.xml") ?: return
+    override fun execute(context: PatchContext<Document>) {
+        val manifestDocument = context.get() ?: return
         val rootElement = manifestDocument.documentElement
 
         // 1. Xóa Permissions quảng cáo/theo dõi
@@ -56,7 +57,5 @@ object AndroidManifestPatch : XmlPatch() {
                 }
             }
         }
-
-        context.saveXmlDocument("AndroidManifest.xml", manifestDocument)
     }
 }
